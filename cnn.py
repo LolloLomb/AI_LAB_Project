@@ -3,14 +3,16 @@ import torch.nn as nn
 import lightning as L
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from hyperparams import num_classes as output_channels, filters
+from hyperparams import num_classes as output_channels, filters, learning_rate
 
 class SimpleCNN(L.LightningModule):
-    def __init__(self, in_channels, num_classes = output_channels, loss_fx = nn.CrossEntropyLoss(), optimizer=None):
+    def __init__(self, in_channels, num_classes = output_channels, loss_fx = nn.CrossEntropyLoss(), optimizer=None, learning_rate = learning_rate):
         super().__init__()
         self.loss_fx = loss_fx
         self.optimizer = optimizer
         self.num_classes = num_classes
+        self.learning_rate = learning_rate
+        self.train_acc_list = []
         self.val_acc_list = []
         self.val_labels = []
         self.val_preds = []
@@ -46,8 +48,9 @@ class SimpleCNN(L.LightningModule):
         x, y = batch
         y_out = self.forward(x)
         loss = self.loss_fx(y_out, y)
-        
+        acc = (y_out.argmax(dim=1) == y).float().mean()
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_acc', acc, prog_bar=True)
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -65,16 +68,19 @@ class SimpleCNN(L.LightningModule):
         return {'val_loss': loss, 'val_acc': acc}
         
     def on_validation_epoch_end(self):
-        avg_acc = self.trainer.callback_metrics.get('val_acc')
-        if avg_acc is not None:
-            self.val_acc_list.append(avg_acc.item())
+        avg_train_acc = self.trainer.callback_metrics.get('train_acc')
+        avg_val_acc = self.trainer.callback_metrics.get('val_acc')
+        if avg_val_acc is not None:
+            self.val_acc_list.append(avg_val_acc.item())
+        if avg_train_acc is not None:
+            self.train_acc_list.append(avg_train_acc.item())
 
     def count_parameters(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)     
 
     def configure_optimizers(self):
         if self.optimizer is None:
-            return torch.optim.AdamW(self.parameters(), lr=0.001)
+            return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
         else:
             return self.optimizer
         
@@ -96,4 +102,3 @@ class SimpleCNN(L.LightningModule):
         plt.title('Confusion Matrix')
         plt.savefig('confusion_matrix.jpg')
         plt.close()  # Chiude la figura corrente per evitare conflitti
-        print(self.val_acc_list)
