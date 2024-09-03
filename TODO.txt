@@ -14,8 +14,8 @@ fare interfaccia grafica (probabilmente no)
 # provare su mnist per vedere se funziona, OK FUNZIONA
 # matrice di confusione
 
-CARICA TUTTO SU COLAB E PROVA CON MNIST PER 50 EPOCHE
-
+# CARICA TUTTO SU COLAB E PROVA CON MNIST PER 50 EPOCHE
 COSA NON SONO RIUSCITO A FARE PER ORA
+
 implementare scheduler per il learning rate
     tracciare la val acc con e senza scheduler
