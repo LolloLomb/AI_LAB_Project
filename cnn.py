@@ -10,7 +10,6 @@ class SimpleCNN(L.LightningModule):
         super().__init__()
         self.loss_fx = loss_fx
         self.optimizer = optimizer
-        self.num_classes = num_classes
         self.learning_rate = learning_rate
         self.in_channels = in_channels
         self.out_channels = num_classes
@@ -25,7 +24,7 @@ class SimpleCNN(L.LightningModule):
         self.conv3 = nn.Conv2d(filters*2, filters*4, kernel_size=3, padding=1)
         self.pool = nn.MaxPool2d(2, 2)
         self.fc1 = nn.Linear(filters*4 * 8 * 8, filters*8)  # Assuming input images are 64x64
-        self.fc2 = nn.Linear(filters*8, self.num_classes)
+        self.fc2 = nn.Linear(filters*8, self.out_channels)
 
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
@@ -106,4 +105,3 @@ class SimpleCNN(L.LightningModule):
         plt.title('Confusion Matrix')
         plt.savefig('confusion_matrix.jpg')
         plt.close()  # Chiude la figura corrente per evitare conflitti
-

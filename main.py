@@ -12,8 +12,8 @@ from lightning.pytorch.tuner import Tuner
 # usiamo AdamW, standard dentro la mia Unet2D
 import os
 
-LOADFROMCKPT = 1
-TESTPHASE = 1
+LOADFROMCKPT = 0
+TESTPHASE = 0
 
 model = SimpleCNN(in_channels, out_channels)
 
@@ -26,9 +26,7 @@ def checkpoint_loader():
         except IndexError:
             return
         checkpoint_path = os.path.join(checkpoint_path, name)
-        model = SimpleCNN.load_from_checkpoint(checkpoint_path)
-        model.in_channels = in_channels
-        model.num_classes = out_channels
+        model = SimpleCNN.load_from_checkpoint(checkpoint_path, in_channels=in_channels, num_classes=out_channels)
         print(f"Checkpoint caricato da {checkpoint_path}")
     else:
         print("Nessun checkpoint trovato. Iniziamo un nuovo addestramento.")
@@ -45,19 +43,21 @@ else:
         transforms.ToTensor(),
     ])
 
+
     image_path = os.path.join('test_samples', 'test_img.webp')
-    
-    proccesed_image_output_path = preprocess_single('test_samples', image_path.split("/")[-1], "webp")
-    proc = Image.open(proccesed_image_output_path)
+    processed_image_output_path = preprocess_single('test_samples', image_path.split("/")[-1], "webp")
+    proc = Image.open(processed_image_output_path)
     proc_tensor = test_transform(proc)
     proc_tensor = torch.unsqueeze(proc_tensor, 0)
-    print(proc_tensor.shape)
 
     model.eval()  # Set the model to evaluation mode
     with torch.no_grad():  # Disable gradient calculation for inference
         output = model(proc_tensor)
         # Process the output as needed
-    print(output)
+        print(output)
+        categories = sorted(os.listdir("preprocessed_dataset"))
+        for elt in range(len(categories)):
+            print(f"{categories[elt]} : {max(0, int(output[0][elt] * 1000))}")
 
 if LOADFROMCKPT == 0:
     tuner = Tuner(trainer)
