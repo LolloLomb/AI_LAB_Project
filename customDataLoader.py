@@ -4,7 +4,8 @@ from torchvision import datasets
 from torch.utils.data import random_split, DataLoader
 from transforms import train_transforms, test_transforms
 import lightning as L
-L.seed_everything(42)
+
+L.seed_everything(42, verbose = False)
 
 class ImageDataModule(L.LightningDataModule):
     def __init__(self, dataset_dir, batch_size, val_split, num_workers):
@@ -13,11 +14,13 @@ class ImageDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.val_split = val_split
         self.num_workers = num_workers
+        self.classes = None
 
     def setup(self, stage=None):
         self.train_transforms = train_transforms
         self.val_transforms = test_transforms
         full_dataset = datasets.ImageFolder(self.dataset_dir)
+        self.classes = full_dataset.classes
         total_size = len(full_dataset)
         val_size = int(self.val_split * total_size)
         train_size = total_size - val_size
@@ -58,3 +61,4 @@ images, labels = next(iter(train_loader))
 # Visualizza le immagini prima delle trasformazioni (originali)
 show_images(images, title="Immagini dopo le trasformazioni (ColorJitter, Flip(s), Normalize)")
 '''
+

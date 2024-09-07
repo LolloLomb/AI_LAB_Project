@@ -7,5 +7,7 @@ trainer = L.Trainer(
     max_epochs=epochs,
     callbacks=[checkpoint_callback, early_stop_callback],
     accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+    logger=False
 )
+
 

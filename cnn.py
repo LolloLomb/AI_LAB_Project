@@ -6,13 +6,14 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from hyperparams import num_classes as output_channels, filters, learning_rate
 
 class SimpleCNN(L.LightningModule):
-    def __init__(self, in_channels, num_classes = output_channels, loss_fx = nn.CrossEntropyLoss(), optimizer=None, learning_rate = learning_rate):
+    def __init__(self, in_channels, classes, num_classes = output_channels, loss_fx = nn.CrossEntropyLoss(), optimizer=None, learning_rate = learning_rate):
         super().__init__()
         self.loss_fx = loss_fx
         self.optimizer = optimizer
         self.learning_rate = learning_rate
         self.in_channels = in_channels
         self.out_channels = num_classes
+        self.classes = classes
         self.train_acc_list = []
         self.val_acc_list = []
         self.val_labels = []
@@ -28,6 +29,7 @@ class SimpleCNN(L.LightningModule):
 
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
+        self.softmax = nn.Softmax(dim = 1)
 
     def forward(self, x):
         # Definisci il forward pass
@@ -42,8 +44,14 @@ class SimpleCNN(L.LightningModule):
         
         x = self.dropout(self.relu(self.fc1(x)))
         x = self.fc2(x)
-        
-        return x
+
+        if self.training:
+            return x
+        else:
+            # Fase di test/inference: restituiamo le probabilità
+            probabilities = self.softmax(x)
+            class_probabilities = {class_name: prob for class_name, prob in zip(self.classes, probabilities.squeeze())}
+            return probabilities, class_probabilities
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -97,11 +105,12 @@ class SimpleCNN(L.LightningModule):
         plt.savefig('acc_over_epoch.jpg')    
         plt.close()  # Chiude la figura corrente per evitare conflitti
 
-        cm = confusion_matrix(self.val_labels, self.val_preds, labels=list(range(self.num_classes)))
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(self.num_classes))
+        cm = confusion_matrix(self.val_labels, self.val_preds, labels=list(range(self.out_channels)))
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(self.out_channels))
 
         plt.figure()  # Crea una nuova figura
         disp.plot()
         plt.title('Confusion Matrix')
         plt.savefig('confusion_matrix.jpg')
         plt.close()  # Chiude la figura corrente per evitare conflitti
+

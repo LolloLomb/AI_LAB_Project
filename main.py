@@ -9,15 +9,17 @@ from PIL import Image
 import torch
 from torchvision import transforms # usato per l'immagine di test
 from lightning.pytorch.tuner import Tuner
-# usiamo AdamW, standard dentro la mia Unet2D
 import os
 
-LOADFROMCKPT = 0
-TESTPHASE = 0
+LOADFROMCKPT = 1
+TESTPHASE = 1
 
-model = SimpleCNN(in_channels, out_channels)
+# Inizializza il dataloader
+data_module = ImageDataModule(dataset_dir=dataset_dir, batch_size=batch_size, val_split=1-train_size_proportion, num_workers=num_workers)
+data_module.setup()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Caricamento del checkpoint (se esiste)
+# Caricamento del modello
 def checkpoint_loader():
     checkpoint_path = 'checkpoint'
     if os.path.exists(checkpoint_path):
@@ -26,43 +28,50 @@ def checkpoint_loader():
         except IndexError:
             return
         checkpoint_path = os.path.join(checkpoint_path, name)
-        model = SimpleCNN.load_from_checkpoint(checkpoint_path, in_channels=in_channels, num_classes=out_channels)
-        print(f"Checkpoint caricato da {checkpoint_path}")
-    else:
-        print("Nessun checkpoint trovato. Iniziamo un nuovo addestramento.")
-
-if LOADFROMCKPT == 1:
-    checkpoint_loader()
         
-if TESTPHASE == 0:
-    data_module = ImageDataModule(dataset_dir=dataset_dir, batch_size=batch_size, val_split=1-train_size_proportion, num_workers=num_workers)
-    data_module.setup()
+        # Carica il modello dal checkpoint
+        model = SimpleCNN.load_from_checkpoint(checkpoint_path, 
+                                               in_channels=in_channels, 
+                                               num_classes=out_channels, 
+                                               classes=data_module.classes)  # Passa le classi
+        model.to(device)
+        print(f"\nCheckpoint caricato da {checkpoint_path}")
+        return model
+    else:
+        print("\nNessun checkpoint trovato. Iniziamo un nuovo addestramento.")
+        return None
 
+# Se `LOADFROMCKPT` è impostato, carica il checkpoint
+if LOADFROMCKPT == 1:
+    model = checkpoint_loader()
 else:
+    model = SimpleCNN(in_channels=in_channels, classes=data_module.classes, num_classes=out_channels)
+
+# Se siamo nella fase di test
+if TESTPHASE == 1:
     test_transform = transforms.Compose([
         transforms.ToTensor(),
     ])
-
 
     image_path = os.path.join('test_samples', 'test_img.webp')
     processed_image_output_path = preprocess_single('test_samples', image_path.split("/")[-1], "webp")
     proc = Image.open(processed_image_output_path)
     proc_tensor = test_transform(proc)
-    proc_tensor = torch.unsqueeze(proc_tensor, 0)
+    proc_tensor = torch.unsqueeze(proc_tensor, 0).to(device)
 
     model.eval()  # Set the model to evaluation mode
     with torch.no_grad():  # Disable gradient calculation for inference
-        output = model(proc_tensor)
-        # Process the output as needed
-        print(output)
-        categories = sorted(os.listdir("preprocessed_dataset"))
-        for elt in range(len(categories)):
-            print(f"{categories[elt]} : {max(0, int(output[0][elt] * 1000))}")
-
-if LOADFROMCKPT == 0:
-    tuner = Tuner(trainer)
-    tuner.lr_find(model, datamodule=data_module)
-    model.val_acc_list = []
-
+        probabilities, class_probabilities = model(proc_tensor)  # Ora il modello restituisce probabilità e dict
+        # Stampa le probabilità per ogni classe
+        for class_name, prob in class_probabilities.items():
+            print(f"{class_name} : {100 * float(prob.item()):.2f}%")
+else:
+    # Se `LOADFROMCKPT` è 0, cerchiamo il learning rate ottimale e facciamo il training
+    if LOADFROMCKPT == 0:
+        tuner = Tuner(trainer)
+        tuner.lr_find(model, datamodule=data_module)
+        model.val_acc_list = []
+    
+    # Addestra il modello
     trainer.fit(model, datamodule=data_module)
 
