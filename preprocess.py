@@ -44,7 +44,7 @@ def preprocess(output_folder_name):
         print(f"finished with {type}")
     print("Done with Preprocessing!")
 
-def preprocess_single(folder_path, image_name, fileFormat):
+def preprocess_single(folder_path, image_name):
 
     img = cv2.imread(os.path.join(folder_path, image_name))
 
@@ -58,9 +58,8 @@ def preprocess_single(folder_path, image_name, fileFormat):
         cropped =   img[img.shape[0]//2 - final_size[0]//2 : img.shape[0]//2 + final_size[0]//2,
                         img.shape[1]//2 - final_size[1]//2 : img.shape[1]//2 + final_size[1]//2]
 
-        output_dir = f"{folder_path}/{image_name.split(f'.' + fileFormat)[0]}_preprocessed." + "png"
+        output_dir = f"{folder_path}/{image_name.split(f'.')[0]}_preprocessed." + "png"
         cv2.imwrite(output_dir, cropped)
         return output_dir
-
 
 
